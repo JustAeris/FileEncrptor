@@ -1,0 +1,22 @@
+﻿//
+// version-history.cs
+// Part of Microsoft.WinAny.Helper library
+// Author:
+//   Josip Habjan (habjan@gmail.com, http://www.linkedin.com/in/habjan) 
+//
+// Copyright (c) 2013 Josip Habjan 
+
+HISTORY of the Microsoft.WinAny.Helper library
+
+1.0.1.         2013-08-23
+-------------------------
+- Added SecureDelete extensions - prevents file recovering by allowing you to 
+  shredd/wipe your files in secure way using Gutmann, DoD-7, DoD-3, Random or 
+  Quick algorithms before deleting them.
+
+
+1.0.0.         2013-08-22
+-------------------------
+- Added DynamicNativeLibrary - Class that helps you to load and use native/unmanaged 
+  dynamic-linked libraries dinamically. It provides ability to load native libraries 
+  from the memory or disk.
