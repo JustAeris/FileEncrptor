@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
@@ -10,19 +9,28 @@ using static FileEncrptor.Encryptor;
 namespace FileEncrptor
 {
     /// <summary>
-    /// Interaction logic for MainWindow.xaml
+    ///     Interaction logic for MainWindow.xaml
     /// </summary>
     public partial class MainWindow
     {
+        /// <summary>
+        ///     Markup byte array
+        /// </summary>
+        private readonly byte[] _markupByteArray =
+        {
+            0x43, 0x72, 0x79, 0x70, 0x74, 0x65, 0x64, 0x20, 0x62, 0x79, 0x20, 0x46, 0x69, 0x6c, 0x65, 0x45, 0x6e, 0x63,
+            0x72, 0x79, 0x70, 0x74, 0x6f, 0x72, 0x20, 0x6d, 0x61, 0x64, 0x65, 0x20, 0x62, 0x79, 0x20, 0x41, 0x73, 0x74,
+            0x79, 0x72, 0x23, 0x33, 0x35, 0x33, 0x35
+        };
+
         public MainWindow()
         {
             InitializeComponent();
         }
 
-        
-        
+
         /// <summary>
-        /// File management buttons logic
+        ///     File management buttons logic
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="e"></param>
@@ -42,23 +50,19 @@ namespace FileEncrptor
             foreach (var s in openFileDlg.FileNames)
                 FileList.Items.Add(s);
         }
-        
+
         private void RemoveSelected_OnClick(object sender, RoutedEventArgs e)
         {
             // CHeck if there is selected items
             if (FileList.SelectedItems.Count == 0) return;
-            
+
             // Delete the selected items
-            for (var i = FileList.Items.Count - 1; i >= 0; i--)
-            {
-                FileList.Items.RemoveAt(i);
-            }
+            for (var i = FileList.Items.Count - 1; i >= 0; i--) FileList.Items.RemoveAt(i);
         }
-        
-        
-        
+
+
         /// <summary>
-        /// Password text box logic
+        ///     Password text box logic
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="e"></param>
@@ -70,7 +74,7 @@ namespace FileEncrptor
                                               string.IsNullOrWhiteSpace(PasswordBox.Text)))
             {
                 EncryptButton.IsEnabled = false;
-                DecryptButton.IsEnabled = false;                
+                DecryptButton.IsEnabled = false;
             }
             else
             {
@@ -78,7 +82,7 @@ namespace FileEncrptor
                 DecryptButton.IsEnabled = true;
             }
         }
-        
+
         private void PasswordBox_OnGotFocus(object sender, RoutedEventArgs e)
         {
             // Remove placeholder text
@@ -92,11 +96,10 @@ namespace FileEncrptor
             if (PasswordBox.Text == "")
                 PasswordBox.Text = "Password";
         }
-             
-        
-        
+
+
         /// <summary>
-        /// Remove files after operation checkbox logic
+        ///     Remove files after operation checkbox logic
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="e"></param>
@@ -104,9 +107,9 @@ namespace FileEncrptor
         {
             // Prevent the dialog from being showed if check is being unchecked
             if (RmvFileAftEncryptCheckbox.IsChecked == false) return;
-            
+
             RmvFileAftEncryptCheckbox.IsChecked = false;
-            
+
             // Warning prompt
             var messageBoxResult = MessageBox.Show(
                 "Warning, files will be lost forever !\nPlease note that this apply to decryption, where encrypted files will be deleted.\n\nProceed ?",
@@ -116,11 +119,10 @@ namespace FileEncrptor
             if (messageBoxResult == MessageBoxResult.Yes)
                 RmvFileAftEncryptCheckbox.IsChecked = true;
         }
-        
-        
-        
+
+
         /// <summary>
-        /// Custom method to append bytes to a file
+        ///     Custom method to append bytes to a file
         /// </summary>
         /// <param name="path"></param>
         /// <param name="bytes"></param>
@@ -132,44 +134,27 @@ namespace FileEncrptor
             }
         }
 
-
-
-        /// <summary>
-        /// Markup byte array
-        /// </summary>
-        private readonly byte[] _markupByteArray = {
-            0x43, 0x72, 0x79, 0x70, 0x74, 0x65, 0x64, 0x20, 0x62, 0x79, 0x20, 0x46, 0x69, 0x6c, 0x65, 0x45, 0x6e, 0x63,
-            0x72, 0x79, 0x70, 0x74, 0x6f, 0x72, 0x20, 0x6d, 0x61, 0x64, 0x65, 0x20, 0x62, 0x79, 0x20, 0x41, 0x73, 0x74,
-            0x79, 0x72, 0x23, 0x33, 0x35, 0x33, 0x35
-        };
-
         private bool FindMarkupByte(string filePath)
         {
             var s = ""; // s variable to compare markup bytes and result
-            
+
             // Method to read the last 43 bytes
             using (var reader = new StreamReader(filePath))
             {
-                if (reader.BaseStream.Length > 43)
-                {
-                    reader.BaseStream.Seek(-43, SeekOrigin.End);
-                }
+                if (reader.BaseStream.Length > 43) reader.BaseStream.Seek(-43, SeekOrigin.End);
                 string line;
-                while ((line = reader.ReadLine()) != null)
-                {
-                    s = line;
-                }
+                while ((line = reader.ReadLine()) != null) s = line;
             }
-            
+
             // Check if found bytes correspond to the markup bytes
             if (s == "Crypted by FileEncryptor made by Astyr#3535")
                 return true;
-            
+
             return false; // Return false if not
         }
 
         /// <summary>
-        /// Encrypt button logic
+        ///     Encrypt button logic
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="e"></param>
@@ -194,7 +179,6 @@ namespace FileEncrptor
 
                     // Check for the extension to not be "aes"
                     if (s.Substring(s.Length - 3) != "aes")
-                    {
                         try
                         {
                             AppendAllBytes(v.ToString(), _markupByteArray);
@@ -206,8 +190,6 @@ namespace FileEncrptor
                             MessageBox.Show(exception.ToString());
                         }
 
-                    }
-
                     // If selected, delete the file after encryption using a secure algorithm
                     if (RmvFileAftEncryptCheckbox.IsChecked == true && removeFiles)
                     {
@@ -215,6 +197,7 @@ namespace FileEncrptor
                         fi1.Delete(OverwriteAlgorithm.Random);
                     }
                 }
+
                 // If the operation has been successful, then show final message
                 if (removeFiles)
                 {
@@ -224,11 +207,10 @@ namespace FileEncrptor
                 }
             }
         }
-        
-        
-        
+
+
         /// <summary>
-        /// Decrypt button logic
+        ///     Decrypt button logic
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="e"></param>
@@ -236,7 +218,7 @@ namespace FileEncrptor
         {
             //This bool is a fail-safe variable to prevent files from being deleted if an error occurs
             var removeFiles = true;
-            
+
             // Confirmation dialog
             var messageBoxResult = MessageBox.Show(
                 "You are about to decrypt files !\n\nProceed ?",
@@ -273,14 +255,14 @@ namespace FileEncrptor
                                 removeFiles = false;
                                 break;
                             }
-                            
+
                             // Delete markup bytes
-                            var deleteMarkup = new FileInfo(v.ToString());
+                            var deleteMarkup = new FileInfo(newFile);
                             var fsDm = deleteMarkup.Open(FileMode.Open);
 
-                            long bytesToDelete = 43 * 2;
+                            long bytesToDelete = 43;
                             var fileLength = deleteMarkup.Length;
-                            fsDm.SetLength (Math.Max(0, fileLength - bytesToDelete));
+                            fsDm.SetLength(Math.Max(0, fileLength - bytesToDelete));
 
                             fsDm.Close();
 
@@ -292,6 +274,7 @@ namespace FileEncrptor
                             }
                         }
                     }
+
                     // Successful operation message
                     if (removeFiles)
                     {
