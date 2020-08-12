@@ -239,7 +239,7 @@ namespace FileEncrptor
             
             // Confirmation dialog
             var messageBoxResult = MessageBox.Show(
-                "You are about to decrypt files !\nPLease note that invalid password are not always detected and can cause corrupted files.\nProceed ?",
+                "You are about to decrypt files !\n\nProceed ?",
                 "Warning !",
                 MessageBoxButton.YesNo, MessageBoxImage.Exclamation);
 
@@ -273,6 +273,16 @@ namespace FileEncrptor
                                 removeFiles = false;
                                 break;
                             }
+                            
+                            // Delete markup bytes
+                            var deleteMarkup = new FileInfo(v.ToString());
+                            var fsDm = deleteMarkup.Open(FileMode.Open);
+
+                            long bytesToDelete = 43 * 2;
+                            var fileLength = deleteMarkup.Length;
+                            fsDm.SetLength (Math.Max(0, fileLength - bytesToDelete));
+
+                            fsDm.Close();
 
                             // Remove files if asked
                             if (removeFiles && RmvFileAftEncryptCheckbox.IsChecked == true)
