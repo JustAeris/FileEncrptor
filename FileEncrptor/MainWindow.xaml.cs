@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using Microsoft.Win32;
@@ -120,9 +122,33 @@ namespace FileEncrptor
                 RmvFileAftEncryptCheckbox.IsChecked = true;
         }
 
+        private void GuiLock(bool disable)
+        {
+            if (disable)
+            {
+                EncryptButton.IsEnabled = false;
+                DecryptButton.IsEnabled = false;
+                RmvFileAftEncryptCheckbox.IsEnabled = false;
+                PasswordBox.IsEnabled = false;
+                addFilesButton.IsEnabled = false;
+                removeFilesButton.IsEnabled = false;
+                FileList.IsEnabled = false;
+            }
+            else
+            {
+                EncryptButton.IsEnabled = true;
+                DecryptButton.IsEnabled = true;
+                RmvFileAftEncryptCheckbox.IsEnabled = true;
+                PasswordBox.IsEnabled = true;
+                addFilesButton.IsEnabled = true;
+                removeFilesButton.IsEnabled = true;
+                FileList.IsEnabled = true;
+            }
+        }
+
 
         /// <summary>
-        ///     Custom method to append bytes to a file
+        /// Custom method to append bytes to a file
         /// </summary>
         /// <param name="path"></param>
         /// <param name="bytes"></param>
@@ -158,7 +184,9 @@ namespace FileEncrptor
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="e"></param>
-        private void EncryptButton_OnClick(object sender, RoutedEventArgs e)
+        [SuppressMessage("ReSharper.DPA", "DPA0003: Excessive memory allocations in LOH",
+            MessageId = "type: System.Byte[]")]
+        private async void EncryptButton_OnClick(object sender, RoutedEventArgs e)
         {
             //This bool is a fail-safe variable to prevent files from being deleted if an error occurs
             var removeFiles = true;
@@ -177,12 +205,26 @@ namespace FileEncrptor
                 {
                     var s = v.ToString();
 
+                    // Check if new files already exists
+                    MessageBoxResult messageBoxResult2 = MessageBoxResult.Yes;
+                    if (File.Exists(v.ToString()))
+                        messageBoxResult2 =
+                            MessageBox.Show(v + " \nalready exists, do you really want to replace it ?",
+                                "Warning !", MessageBoxButton.YesNo, MessageBoxImage.Exclamation);
+                    if (messageBoxResult2 == MessageBoxResult.No)
+                    {
+                        removeFiles = false;
+                        break;
+                    }
+
                     // Check for the extension to not be "aes"
                     if (s.Substring(s.Length - 3) != "aes")
                         try
                         {
                             AppendAllBytes(v.ToString(), _markupByteArray);
-                            FileEncrypt(v.ToString(), PasswordBox.Text);
+                            var pw = PasswordBox.Text;
+                            GuiLock(true);
+                            await Task.Run(() => FileEncrypt(v.ToString(), pw));
                         }
                         catch (Exception exception)
                         {
@@ -204,6 +246,7 @@ namespace FileEncrptor
                     FileList.Items.Clear();
                     MessageBox.Show("Encryption done !", "Done", MessageBoxButton.OK, MessageBoxImage.Information);
                     PasswordBox.Text = "";
+                    GuiLock(false);
                 }
             }
         }
@@ -241,8 +284,26 @@ namespace FileEncrptor
                             // New file path creation
                             var newFile = v.ToString().Replace(".aes", "");
 
-                            // Decryption
-                            FileDecrypt(v.ToString(), newFile, PasswordBox.Text);
+                            // Check if new file already exists
+                            MessageBoxResult messageBoxResult2 = MessageBoxResult.Yes;
+                            if (File.Exists(newFile))
+                                messageBoxResult2 =
+                                    MessageBox.Show(v + " \nalready exists, do you really want to replace it ?",
+                                        "Warning !", MessageBoxButton.YesNo, MessageBoxImage.Exclamation);
+                            if (messageBoxResult2 == MessageBoxResult.No)
+                            {
+                                removeFiles = false;
+                                break;
+                            }
+
+                            // Put password in another var
+                            var pw = PasswordBox.Text;
+
+                            // Lock the GUI
+                            GuiLock(true);
+
+                            // Decryption in another thread
+                            Task.Run(() => FileDecrypt(v.ToString(), newFile, pw));
 
                             // Check if file has been successfully decrypted by reading the markup byte
                             if (!FindMarkupByte(newFile))
@@ -261,13 +322,12 @@ namespace FileEncrptor
                             var fsDm = deleteMarkup.Open(FileMode.Open);
 
                             long bytesToDelete = 43;
-                            var fileLength = deleteMarkup.Length;
-                            fsDm.SetLength(Math.Max(0, fileLength - bytesToDelete));
+                            fsDm.SetLength(Math.Max(0, deleteMarkup.Length - bytesToDelete));
 
                             fsDm.Close();
 
                             // Remove files if asked
-                            if (removeFiles && RmvFileAftEncryptCheckbox.IsChecked == true)
+                            if ( /*removeFiles &&*/ RmvFileAftEncryptCheckbox.IsChecked == true)
                             {
                                 var fi1 = new FileInfo(v.ToString());
                                 fi1.Delete(OverwriteAlgorithm.Random);
@@ -275,12 +335,13 @@ namespace FileEncrptor
                         }
                     }
 
-                    // Successful operation message
+                    // Successful operation message and unlock GUI
                     if (removeFiles)
                     {
                         MessageBox.Show("Decryption done !", "Done", MessageBoxButton.OK, MessageBoxImage.Information);
                         FileList.Items.Clear();
                         PasswordBox.Text = "";
+                        GuiLock(false);
                     }
                 }
             }
