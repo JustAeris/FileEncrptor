@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -130,8 +131,8 @@ namespace FileEncrptor
                 DecryptButton.IsEnabled = false;
                 RmvFileAftEncryptCheckbox.IsEnabled = false;
                 PasswordBox.IsEnabled = false;
-                addFilesButton.IsEnabled = false;
-                removeFilesButton.IsEnabled = false;
+                AddFilesButton.IsEnabled = false;
+                RemoveFilesButton.IsEnabled = false;
                 FileList.IsEnabled = false;
             }
             else
@@ -140,10 +141,25 @@ namespace FileEncrptor
                 DecryptButton.IsEnabled = true;
                 RmvFileAftEncryptCheckbox.IsEnabled = true;
                 PasswordBox.IsEnabled = true;
-                addFilesButton.IsEnabled = true;
-                removeFilesButton.IsEnabled = true;
+                AddFilesButton.IsEnabled = true;
+                RemoveFilesButton.IsEnabled = true;
                 FileList.IsEnabled = true;
             }
+        }
+
+        /// <summary>
+        /// Small method to check if user want to replace existing files.
+        /// </summary>
+        /// <param name="file"></param>
+        /// <returns></returns>
+        private static bool FileReplace(string file)
+        {
+            var messageBoxResult2 = MessageBoxResult.Yes;
+            if (File.Exists(file))
+                messageBoxResult2 =
+                    MessageBox.Show(file + " \nalready exists, do you really want to replace it ?",
+                        "Warning !", MessageBoxButton.YesNo, MessageBoxImage.Exclamation);
+            return messageBoxResult2 == MessageBoxResult.Yes;
         }
 
 
@@ -205,38 +221,47 @@ namespace FileEncrptor
                 {
                     var s = v.ToString();
 
-                    // Check if new files already exists
-                    MessageBoxResult messageBoxResult2 = MessageBoxResult.Yes;
-                    if (File.Exists(v.ToString()))
-                        messageBoxResult2 =
-                            MessageBox.Show(v + " \nalready exists, do you really want to replace it ?",
-                                "Warning !", MessageBoxButton.YesNo, MessageBoxImage.Exclamation);
-                    if (messageBoxResult2 == MessageBoxResult.No)
-                    {
-                        removeFiles = false;
-                        break;
-                    }
+                    // Check if new files already exists and if we want to replace it
+                    var replace = FileReplace(s + ".aes");
 
                     // Check for the extension to not be "aes"
-                    if (s.Substring(s.Length - 3) != "aes")
+                    if (s.Substring(s.Length - 3) != "aes" && replace)
                         try
                         {
+                            //Add markup bytes
                             AppendAllBytes(v.ToString(), _markupByteArray);
+
+                            // Put password into another var and clearing the text box
                             var pw = PasswordBox.Text;
+                            PasswordBox.Text = "";
+
+                            // Lock the GUI
                             GuiLock(true);
+
+                            // For additional security Pin the password of your files
+                            var gch = GCHandle.Alloc(pw, GCHandleType.Pinned);
+
+                            // Encrypt the file
                             await Task.Run(() => FileEncrypt(v.ToString(), pw));
+
+                            // Clear the password from the memory
+                            ZeroMemory(gch.AddrOfPinnedObject(), pw.Length * 2);
+                            gch.Free();
                         }
                         catch (Exception exception)
                         {
                             removeFiles = false;
+                            var fi2 = new FileInfo(s + ".aes");
+                            await Task.Run(() => fi2.Delete(OverwriteAlgorithm.Quick));
+                            GuiLock(false);
                             MessageBox.Show(exception.ToString());
                         }
 
                     // If selected, delete the file after encryption using a secure algorithm
-                    if (RmvFileAftEncryptCheckbox.IsChecked == true && removeFiles)
+                    if (RmvFileAftEncryptCheckbox.IsChecked == true && removeFiles && replace)
                     {
                         var fi1 = new FileInfo(v.ToString());
-                        fi1.Delete(OverwriteAlgorithm.Random);
+                        await Task.Run(() => fi1.Delete(OverwriteAlgorithm.Random));
                     }
                 }
 
@@ -245,7 +270,7 @@ namespace FileEncrptor
                 {
                     FileList.Items.Clear();
                     MessageBox.Show("Encryption done !", "Done", MessageBoxButton.OK, MessageBoxImage.Information);
-                    PasswordBox.Text = "";
+                    PasswordBox.Text = "Password";
                     GuiLock(false);
                 }
             }
@@ -257,7 +282,7 @@ namespace FileEncrptor
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="e"></param>
-        private void DecryptButton_OnClick(object sender, RoutedEventArgs e)
+        private async void DecryptButton_OnClick(object sender, RoutedEventArgs e)
         {
             //This bool is a fail-safe variable to prevent files from being deleted if an error occurs
             var removeFiles = true;
@@ -278,44 +303,52 @@ namespace FileEncrptor
                     {
                         var s = v.ToString();
 
-                        // Check for extension to be "aes"
-                        if (s.Substring(s.Length - 3) == "aes")
+                        // New file path creation
+                        var newFile = v.ToString().Replace(".aes", "");
+
+                        // Check if new file already exists
+                        var replace = FileReplace(newFile);
+
+                        // Check for extension to be "aes" and if user wants to replace file
+                        if (s.Substring(s.Length - 3) == "aes" && replace)
                         {
-                            // New file path creation
-                            var newFile = v.ToString().Replace(".aes", "");
-
-                            // Check if new file already exists
-                            MessageBoxResult messageBoxResult2 = MessageBoxResult.Yes;
-                            if (File.Exists(newFile))
-                                messageBoxResult2 =
-                                    MessageBox.Show(v + " \nalready exists, do you really want to replace it ?",
-                                        "Warning !", MessageBoxButton.YesNo, MessageBoxImage.Exclamation);
-                            if (messageBoxResult2 == MessageBoxResult.No)
-                            {
-                                removeFiles = false;
-                                break;
-                            }
-
                             // Put password in another var
                             var pw = PasswordBox.Text;
 
                             // Lock the GUI
                             GuiLock(true);
 
+                            // For additional security Pin the password of your files
+                            GCHandle gch = GCHandle.Alloc(pw, GCHandleType.Pinned);
+
                             // Decryption in another thread
-                            Task.Run(() => FileDecrypt(v.ToString(), newFile, pw));
+                            await Task.Run(() => FileDecrypt(v.ToString(), newFile, pw));
+
+                            // To increase the security of the decryption, delete the used password from the memory !
+                            ZeroMemory(gch.AddrOfPinnedObject(), pw.Length * 2);
+                            gch.Free();
 
                             // Check if file has been successfully decrypted by reading the markup byte
-                            if (!FindMarkupByte(newFile))
+                            try
                             {
-                                // Show an error message and prevent the files from being deleted if an error occurs
-                                MessageBox.Show("Oops, an error as occured, maybe a wrong password ?", "Error !",
-                                    MessageBoxButton.OK, MessageBoxImage.Error);
-                                var fi2 = new FileInfo(newFile);
-                                fi2.Delete(OverwriteAlgorithm.Quick);
-                                removeFiles = false;
-                                break;
+                                if (!FindMarkupByte(newFile))
+                                {
+                                    // Show an error message and prevent the files from being deleted if an error occurs
+                                    MessageBox.Show("Oops, an error as occured, maybe a wrong password ?", "Error !",
+                                        MessageBoxButton.OK, MessageBoxImage.Error);
+                                    var fi2 = new FileInfo(newFile);
+                                    await Task.Run(() => fi2.Delete(OverwriteAlgorithm.Quick));
+                                    GuiLock(false);
+                                    removeFiles = false;
+                                    break;
+                                }
                             }
+                            catch (Exception exception)
+                            {
+                                Console.WriteLine(exception);
+                                throw;
+                            }
+
 
                             // Delete markup bytes
                             var deleteMarkup = new FileInfo(newFile);
@@ -330,7 +363,7 @@ namespace FileEncrptor
                             if ( /*removeFiles &&*/ RmvFileAftEncryptCheckbox.IsChecked == true)
                             {
                                 var fi1 = new FileInfo(v.ToString());
-                                fi1.Delete(OverwriteAlgorithm.Random);
+                                await Task.Run(() => fi1.Delete(OverwriteAlgorithm.Random));
                             }
                         }
                     }
