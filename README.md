@@ -9,4 +9,4 @@ Functionalities :
 - Portable ! Just extract the content into a folder and run the exe
 - Intelligent system to prevent corrupted files and errors
 
-ENjoy using it and please report bugs, it's very important :smile:
+Enjoy using it and please report bugs, it's very important :smile:
