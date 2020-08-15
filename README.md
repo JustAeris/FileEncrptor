@@ -3,7 +3,7 @@ Light-weight and secure file encrypter using AES-256bits encryption
 
 Functionalities :
 - Strong AES-256bits encryption
-- Password cleared from memory once encryption is done
+- Password cleared from memory once encryption/decryption is done
 - Strong file deletion on encryption/decryption if wanted
 - Small size, 134ko once installed/extracted
 - Portable ! Just extract the content into a folder and run the exe
