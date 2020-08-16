@@ -1,3 +1,4 @@
-﻿/.idea/
-/FileEncrptor/bin/
-/FileEncrptor/obj/
+﻿.idea/
+.vs/
+obj/
+bin/
